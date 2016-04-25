@@ -825,8 +825,12 @@ calc_times:
             time_t sec = avgt / 1000000;
             localtime_r(&sec, &ti);
             usecs = (int64_t)(ti.tm_hour * 3600 + ti.tm_min * 60 + ti.tm_sec) * 1000000 + (avgt % 1000000);
-            wrapped_val = (usecs + seg->clocktime_offset) % seg->time;
-            if (seg->last_cut != usecs && wrapped_val < seg->last_val && wrapped_val < seg->clocktime_wrap_duration) {
+            wrapped_val = usecs / seg->time + 1;
+            if (!seg->last_val) {
+                // Init last_val
+                seg->last_val = wrapped_val;
+            }
+            if (seg->last_cut != usecs && wrapped_val != seg->last_val) {
                 seg->cut_pending = 1;
                 seg->last_cut = usecs;
             }
