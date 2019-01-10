@@ -4627,6 +4627,28 @@ int ff_mov_write_packet(AVFormatContext *s, AVPacket *pkt)
                    "this case.\n",
                    pkt->stream_index, pkt->dts);
     }
+    
+    uint64_t packet_duration = pkt->duration;
+    if (!packet_duration) {
+        // The current packet has no duration. It may be from a live stream.
+        // Make one up based on the difference in time between this and the previous packet.
+        // This will only be used when calcualting the track duration and is a best effort guess.
+        MOVMuxContext *mov = s->priv_data;
+        MOVTrack *trk = &mov->tracks[pkt->stream_index];
+        int64_t ref;
+        uint64_t duration;
+
+        if (trk->entry) {
+            ref = trk->cluster[trk->entry - 1].dts;
+        } else if (   trk->start_dts != AV_NOPTS_VALUE
+                   && !trk->frag_discont) {
+            ref = trk->start_dts + trk->track_duration;
+        } else
+            ref = pkt->pts; // Skip tests for the first packet
+
+        packet_duration = pkt->pts - ref;
+    }
+
     trk->track_duration = pkt->dts - trk->start_dts + pkt->duration;
     trk->last_sample_is_subtitle_end = 0;
 
